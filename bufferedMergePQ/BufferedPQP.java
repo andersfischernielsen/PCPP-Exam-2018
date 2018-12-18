@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
@@ -14,7 +15,7 @@ public class BufferedPQP implements PQ {
     // buffer containing the elements in order
     private int[] buffer;
     private int[] nextBuffer;
-    private ExecutorService executorService;
+    private ExecutorService executorService = Executors.newWorkStealingPool();
     // the two recursive priority queues, which will store elements which cannot
     // stay in "buffer"
     PQ left = null, right = null;
@@ -27,7 +28,6 @@ public class BufferedPQP implements PQ {
     public Parameters param;
 
     BufferedPQP(Parameters pp) {
-        executorService = Executors.newWorkStealingPool();
         param = pp;
         bufLen = param.bufLen;
         PQPair pqPair = param.pqPair.clone();
@@ -43,6 +43,7 @@ public class BufferedPQP implements PQ {
         left = pqPair.getLeft();
         right = pqPair.getRight();
         buffer = getNewBuffer(bufLen);
+        nextBuffer = getNewBuffer(bufLen);
         current = 0;
     }
 
@@ -54,17 +55,8 @@ public class BufferedPQP implements PQ {
         int res = peek();
         current++;
         if (current >= buffer.length) { // the buffer is empty
-            var f = executorService.submit(() -> getNewBuffer(bufLen));
-            try {
-                while (!f.isDone()) {
-                    buffer = nextBuffer;
-                }
-                buffer = f.get();
-            } catch (InterruptedException e) {
-                throw e;
-            } catch (ExecutionException e) {
-                throw e;
-            }
+            buffer = nextBuffer;
+            executorService.submit(() -> nextBuffer = getNewBuffer(bufLen));
             current = 0;
         }
         return res;

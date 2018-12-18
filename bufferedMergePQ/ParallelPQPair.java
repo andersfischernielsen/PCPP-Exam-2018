@@ -16,16 +16,19 @@ public class ParallelPQPair implements PQPair {
 
     public void createPairParam(Parameters param, Function<Parameters, PQ> instanceCreator) {
         var executor = Executors.newWorkStealingPool();
-        var tasks = new ArrayList<Callable<PQ>>();
-        Future<PQ> leftTask = executor.submit(() -> instanceCreator.apply(param.left()));
-        Future<PQ> rightTask = executor.submit(() -> instanceCreator.apply(param.right()));
+        var tasks = new ArrayList<Callable<Void>>();
+        tasks.add(() -> {
+            left = instanceCreator.apply(param.left());
+            return null;
+        });
+        tasks.add(() -> {
+            right = instanceCreator.apply(param.right());
+            return null;
+        });
         try {
-            left = leftTask.get();
-            right = leftTask.get();
+            executor.invokeAll(tasks);
         } catch (InterruptedException e) {
-            throw e;
-        } catch (ExecutionException e) {
-            throw e;
+            throw new RuntimeException(e);
         }
     };
 

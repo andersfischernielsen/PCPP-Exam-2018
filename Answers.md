@@ -48,7 +48,7 @@ new Thread(() -> {
 });
 ```
 
-This test never succeeds, which it should.
+This test never succeeds, which it should. This shows a visiblity problem in `UnsafeAccounts`.
 
 ### Question 1.3
 
@@ -560,15 +560,12 @@ Implementation can be seen below:
 public void createPairParam(Parameters param, Function<Parameters, PQ> instanceCreator) {
     var executor = Executors.newWorkStealingPool();
     var tasks = new ArrayList<Callable<PQ>>();
-    Future<PQ> leftTask = executor.submit(() -> instanceCreator.apply(param.left()));
-    Future<PQ> rightTask = executor.submit(() -> instanceCreator.apply(param.right()));
+    tasks.add(() -> left = instanceCreator.apply(param.left()));
+    tasks.add(() -> right = instanceCreator.apply(param.right()));
     try {
-        left = leftTask.get();
-        right = leftTask.get();
+        executor.invokeAll(tasks);
     } catch (InterruptedException e) {
-        throw e;
-    } catch (ExecutionException e) {
-        throw e;
+        throw new RuntimeException(e);
     }
 };
 ```
@@ -582,12 +579,12 @@ public class BufferedPQP implements PQ {
     // buffer containing the elements in order
     private int[] buffer;
     private int[] nextBuffer;
-    private ExecutorService executorService;
+    private ExecutorService executorService = Executors.newWorkStealingPool();
 
     [...]
 
     BufferedPQP(Parameters pp) {
-        executorService = Executors.newWorkStealingPool();
+        nextBuffer = getNewBuffer(bufLen);
         [...]
     }
 
@@ -597,17 +594,8 @@ public class BufferedPQP implements PQ {
         int res = peek();
         current++;
         if (current >= buffer.length) { // the buffer is empty
-            var f = executorService.submit(() -> getNewBuffer(bufLen));
-            try {
-                while (!f.isDone()) {
-                    buffer = nextBuffer;
-                }
-                buffer = f.get();
-            } catch (InterruptedException e) {
-                throw e;
-            } catch (ExecutionException e) {
-                throw e;
-            }
+            buffer = nextBuffer;
+            executorService.submit(() -> nextBuffer = getNewBuffer(bufLen));
             current = 0;
         }
         return res;
@@ -616,6 +604,25 @@ public class BufferedPQP implements PQ {
     [...]
 }
 ```
+
+### Question 2.5
+
+```
+n 10000000  s 45678, extract 2500000  bufLen 20  maxDepth 4  cutOff 4
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T21:27:45+0100
+-1073351325 One Serial                     Real time:     1.002 (    0.986)
+-1073351325 One Parallel                   Real time:     0.456 (    0.445)
+-1073351325 BufferedPQ Ser/Serial          Real time:     0.909 (    0.693)
+-1073351325 BufferedPQ Par/Parallel        Real time:     0.532 (    0.335)
+-2094454890 BufferedPQP                    Real time:     0.785 (    0.716)
+-1814981005 BufferedPQP ParallelPair       Real time:     0.420 (    0.341)
+```
+
+We see that the `ParallelPQPair` implementation halves the execution time for the `BufferedPQ` implementation and the `BufferedPQP`, which is to be expected considering that we divide the work into two concurrent tasks in the `Pair`.
+As we have seen previously in the course, using a `workStealingPool` is efficient since we use all available processors as the parallelism level.
 
 ## 3 Message Passing
 

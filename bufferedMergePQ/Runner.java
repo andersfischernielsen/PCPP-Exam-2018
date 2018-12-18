@@ -45,31 +45,20 @@ public class Runner {
                         new Parameters(x, 0, x.length, 0, bufLen, cutOff, maxDepth, false, new SerialPQPair())),
                 "BufferedPQ Ser/Serial");
 
-        // // the following works if you happen to come up with something that looks
-        // like my solution; you can try to do this or you can adjust the calls -- up to
-        // you
-        // timePQ(a,extract,(x)-> new BufferedPQ (new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth,false, new
-        // ParallelPQPair())),"BufferedPQ Par/Serial");
-        // timePQ(a,extract,(x)-> new BufferedPQ (new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth,true,new SerialPQPair())),
-        // "BufferedPQ Ser/Parallel");
-        // timePQ(a,extract,(x)-> new BufferedPQ (new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth,true,new
-        // ParallelPQPair())),"BufferedPQ Par/Parallel");
-        // timePQ(a,extract,(x)-> new BufferedPQSolution(new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth,false, new SerialPQPair())),
-        // "Solution Ser/Serial");
-        // timePQ(a,extract,(x)-> new BufferedPQSolution(new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth,true,new SerialPQPair())),
-        // "Solution Par/Serial");
+        timePQ(a, extract,
+                (x) -> new BufferedPQ(
+                        new Parameters(x, 0, x.length, 0, bufLen, cutOff, maxDepth, true, new ParallelPQPair())),
+                "BufferedPQ Par/Parallel");
 
-        // timePQ(a,extract,(x)-> new BoundedBufferMerge(new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth, false ,new
-        // ParallelPQPair())),"Merge Par/Par");
-        // timePQ(a,extract,(x)-> new BoundedBufferThreadMerge(new
-        // Parameters(x,0,x.length,0,bufLen,cutOff,maxDepth,false,new
-        // SerialPQPair())),"Merge Thread");
+        timePQ(a, extract,
+                (x) -> new BufferedPQP(
+                        new Parameters(x, 0, x.length, 0, bufLen, cutOff, maxDepth, false, new SerialPQPair())),
+                "BufferedPQP");
+
+        timePQ(a, extract,
+                (x) -> new BufferedPQP(
+                        new Parameters(x, 0, x.length, 0, bufLen, cutOff, maxDepth, false, new ParallelPQPair())),
+                "BufferedPQP ParallelPair");
     }
 
     // in the following, there are some things that I found very useful for
