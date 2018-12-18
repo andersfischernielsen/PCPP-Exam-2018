@@ -66,19 +66,23 @@ class MergerActor extends UntypedActor {
             this.receiver = ((ResultMessage) o).receiver;
         }
 
-        // TODO:
         else if (o instanceof SortedMessage) {
             // Since we can't do nested onReceive, we do stateful receiver and
             // list building on this actor.
             if (receiver == null)
                 return;
-            if (l1 == null)
+            if (l1 == null && l2 != null) {
                 l1 = ((SortedMessage) o).sorted;
-            if (l1 != null)
+            }
+            if (l1 != null && l2 == null) {
                 l2 = ((SortedMessage) o).sorted;
-            var sorted = merge(l1, l2);
-            System.out.println("Merged: " + sorted);
-            receiver.tell(new SortedMessage(sorted), ActorRef.noSender());
+            }
+            if (l1 != null && l2 != null) {
+                getContext().become();
+                var sorted = merge(l1, l2);
+                System.out.println("Merged: " + sorted);
+                receiver.tell(new SortedMessage(sorted), ActorRef.noSender());
+            }
         }
     }
 }
