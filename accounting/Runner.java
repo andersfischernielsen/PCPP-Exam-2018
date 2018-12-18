@@ -4,11 +4,12 @@ import java.util.function.*;
 public class Runner {
     public static void main(String[] args) {
         final int n = 100;
-        testAccounts(new UnsafeAccounts(n), n);
+        testAccounts(new CASAccounts(n), n);
 
         final int numberOfTransactions = 1000;
-        applyTransactionsLoop(n, numberOfTransactions, () -> new UnsafeAccounts(n));
-        applyTransactionsCollect(n, numberOfTransactions, () -> new UnsafeAccounts(n));
+        // applyTransactionsLoop(n, numberOfTransactions, () -> new UnsafeAccounts(n));
+        // applyTransactionsCollect(n, numberOfTransactions, () -> new
+        // UnsafeAccounts(n));
     }
 
     public static void testAccounts(Accounts accounts, final int n) {
@@ -42,6 +43,50 @@ public class Runner {
         assert (accounts.sumBalances() == 200);
 
         System.out.printf(accounts.getClass() + " passed sequential tests\n");
+
+        // ---- Concurrent tests ---- //
+        accounts.deposit(n - 1, 100);
+        for (int i = 0; i < 20000; i++) {
+            new Thread(() -> {
+                accounts.deposit(n - 1, 1);
+                int value = accounts.get(n - 1);
+                accounts.transfer(n - 1, n - 2, value);
+                assert (accounts.get(n - 1) == 0);
+            });
+            new Thread(() -> {
+                accounts.deposit(n - 1, 1);
+                int value = accounts.get(n - 1);
+                accounts.transfer(n - 1, n - 2, value);
+                assert (accounts.get(n - 1) == 0);
+            });
+            new Thread(() -> {
+                accounts.deposit(n - 1, 1);
+                int value = accounts.get(n - 1);
+                accounts.transfer(n - 1, n - 2, value);
+                assert (accounts.get(n - 1) == 0);
+            });
+            new Thread(() -> {
+                accounts.deposit(n - 1, 1);
+                int value = accounts.get(n - 1);
+                accounts.transfer(n - 1, n - 2, value);
+                assert (accounts.get(n - 1) == 0);
+            });
+        }
+
+        accounts.deposit(n - 1, 99);
+        new Thread(() -> {
+            while (accounts.get(n - 1) != 100) {
+            }
+            assert (true);
+            System.out.println("I'm never run.");
+        });
+        new Thread(() -> {
+            accounts.deposit(n - 1, 1);
+            accounts.deposit(n - 1, 1);
+            accounts.deposit(n - 1, 1);
+        });
+
+        System.out.printf(accounts.getClass() + " passed concurrent tests\n");
     }
 
     // Question 1.7.1
@@ -54,12 +99,12 @@ public class Runner {
                 .mapToObj((i) -> new Transaction(numberOfAccounts, i));
         // implement applying each transaction by using a for-loop
         // Modify it to run with a parallel stream.
- // YOUR CODE GOES HERE 
+        // YOUR CODE GOES HERE
     }
 
     // Question 1.7.2
     private static void applyTransactionsCollect(int numberOfAccounts, int numberOfTransactions,
-                                                 Supplier<Accounts> generator) {
+            Supplier<Accounts> generator) {
         // remember that if "from" is -1 in transaction then it is considered a deposit
         // otherwise it is a transfer.
         Stream<Transaction> transactions = IntStream.range(0, numberOfTransactions).parallel()
@@ -67,6 +112,6 @@ public class Runner {
 
         // Implement applying each transaction by using the collect stream operator.
         // Modify it to run with a parallel stream.
- // YOUR CODE GOES HERE 
+        // YOUR CODE GOES HERE
     }
 }
