@@ -55,12 +55,13 @@ class MergerActor extends UntypedActor {
 
     private List<Integer> merge(List<Integer> l1, List<Integer> l2) {
         var result = new ArrayList<Integer>();
-        if (l1.get(0).compareTo(l2.get(0)) < 0) {
+        if (l1.stream().min(Integer::compare).get() < l2.stream().min(Integer::compare).get()) {
             result.addAll(l1);
             result.addAll(l2);
-        } else
+        } else {
             result.addAll(l2);
-        result.addAll(l1);
+            result.addAll(l1);
+        }
         return result;
     }
 
@@ -90,7 +91,8 @@ class TesterActor extends UntypedActor {
     public void onReceive(Object o) throws Exception {
         if (o instanceof InitMessage) {
             var sorter = ((InitMessage) o).sorter;
-            var list = Arrays.asList(new Integer[] { 8, 7, 6, 5, 4, 3, 2, 1 });
+            var list = Arrays.asList(new Integer[] { 8, 8, 8, 8, 1, 1, 1, 1 });
+            System.out.println(list);
             sorter.tell(new SortMessage(list, getSelf()), ActorRef.noSender());
         } else if (o instanceof SortedMessage) {
             System.out.println("RESULT: " + ((SortedMessage) o).sorted);
