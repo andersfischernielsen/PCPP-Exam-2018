@@ -1,3 +1,7 @@
+<!--
+    pandoc Answers.md -o Answers.pdf -V geometry:margin=1in
+-->
+
 # Exam
 
 ## 1 Accounting System
@@ -439,9 +443,183 @@ The serial run will be slower due to the fact that we cannot execute work concur
 The amount of `numberOfTransactions` can be raised to 200000 before the execution time of the sequential and stream-based approaches begin to look alike.
 If `n` is raised, then the two approaches diverge again and the stream-based approach is much faster again.
 
-### Question 3
+## 2 Buffered Merging Priority Queue
 
-I've implemented the Erlang reference implementation in _Java+Akka_ according to "spec", using Java 10 (which lets me use `var` type declarations).
+### Question 2.1
+
+Results of benchmarking the class can be seen below:
+
+```
+Default parameters:
+n 10000000  s 45678, extract 2500000  bufLen 20  maxDepth 4  cutOff 4
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:43:18+0100
+-1073351325 One Serial                     Real time:     1.040 (    1.022)
+-1073351325 One Parallel                   Real time:     0.455 (    0.445)
+-1073351325 BufferedPQ Ser/Serial          Real time:     0.911 (    0.695)
+
+One Parallel:           ~50% speed-up
+BufferedPQ Ser/Serial:  ~10% speed-up
+
+
+Big bufLen:
+n 10000000  s 45678, extract 2500000  bufLen 10000  maxDepth 4  cutOff 4
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:49:17+0100
+-1073351325 One Serial                     Real time:     1.023 (    1.003)
+-1073351325 One Parallel                   Real time:     0.456 (    0.446)
+-1073351325 BufferedPQ Ser/Serial          Real time:     0.878 (    0.712)
+
+One Parallel:           ~45% speed-up
+BufferedPQ Ser/Serial:  ~15% speed-up
+
+
+Small bufLen:
+n 10000000  s 45678, extract 2500000  bufLen 10  maxDepth 4  cutOff 4
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:50:18+0100
+-1073351325 One Serial                     Real time:     1.067 (    1.051)
+-1073351325 One Parallel                   Real time:     0.457 (    0.447)
+-1073351325 BufferedPQ Ser/Serial          Real time:     0.935 (    0.703)
+
+One Parallel:           ~45% speed-up
+BufferedPQ Ser/Serial:  ~10% speed-up
+
+
+Big cutOff:
+n 10000000  s 45678, extract 2500000  bufLen 20  maxDepth 4  cutOff 12
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:51:03+0100
+-1073351325 One Serial                     Real time:     1.019 (    1.002)
+-1073351325 One Parallel                   Real time:     0.459 (    0.448)
+-1073351325 BufferedPQ Ser/Serial          Real time:     0.922 (    0.704)
+
+One Parallel:           ~45% speed-up
+BufferedPQ Ser/Serial:  ~10% speed-up
+
+
+Small cutOff:
+n 10000000  s 45678, extract 2500000  bufLen 20  maxDepth 4  cutOff 1
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:51:33+0100
+-1073351325 One Serial                     Real time:     1.023 (    1.006)
+-1073351325 One Parallel                   Real time:     0.465 (    0.454)
+-1073351325 BufferedPQ Ser/Serial          Real time:     0.927 (    0.706)
+
+One Parallel:           ~50% speed-up
+BufferedPQ Ser/Serial:  ~10% speed-up
+
+
+Huge n:
+n 100000000  s 45678, extract 25000000  bufLen 20  maxDepth 4  cutOff 4
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:52:18+0100
+-1073571373 One Serial                     Real time:    11.857 (   11.779)
+-1073571373 One Parallel                   Real time:     5.573 (    5.541)
+-1073571373 BufferedPQ Ser/Serial          Real time:    10.794 (    9.342)
+
+One Parallel:           ~50% speed-up
+BufferedPQ Ser/Serial:  ~10% speed-up
+
+
+
+Tiny n:
+n 1000000  s 45678, extract 250000  bufLen 20  maxDepth 4  cutOff 4
+# OS:   Mac OS X; 10.14.2; x86_64
+# JVM:  Oracle Corporation; 11.0.1
+# CPU:  null; 4 "cores"
+# Date: 2018-12-18T18:53:17+0100
+-1073155617 One Serial                     Real time:     0.125 (    0.121)
+-1073155617 One Parallel                   Real time:     0.212 (    0.212)
+-1073155617 BufferedPQ Ser/Serial          Real time:     0.111 (    0.065)
+
+One Parallel:            NO  speed-up
+BufferedPQ Ser/Serial:  ~10% speed-up
+```
+
+It is interesting to see that there is a slowdown on small $n$. The overhead of multithreading is simply too big to outweigh the single-core speed.
+Otherwise the results are quite consistent with the biggest speed-up seen using _One Parallel_.
+
+### Question 2.2
+
+Implementation can be seen below:
+
+```java
+public void createPairParam(Parameters param, Function<Parameters, PQ> instanceCreator) {
+    var executor = Executors.newWorkStealingPool();
+    var tasks = new ArrayList<Callable<PQ>>();
+    Future<PQ> leftTask = executor.submit(() -> instanceCreator.apply(param.left()));
+    Future<PQ> rightTask = executor.submit(() -> instanceCreator.apply(param.right()));
+    try {
+        left = leftTask.get();
+        right = leftTask.get();
+    } catch (InterruptedException e) {
+        throw e;
+    } catch (ExecutionException e) {
+        throw e;
+    }
+};
+```
+
+### Question 2.3
+
+My initial implementation can be seen below. Parts of the code have been omitted since it is identical to `BufferedPQ`.
+
+```java
+public class BufferedPQP implements PQ {
+    // buffer containing the elements in order
+    private int[] buffer;
+    private int[] nextBuffer;
+    private ExecutorService executorService;
+
+    [...]
+
+    BufferedPQP(Parameters pp) {
+        executorService = Executors.newWorkStealingPool();
+        [...]
+    }
+
+    [...]
+
+    public int getMin() {
+        int res = peek();
+        current++;
+        if (current >= buffer.length) { // the buffer is empty
+            var f = executorService.submit(() -> getNewBuffer(bufLen));
+            try {
+                while (!f.isDone()) {
+                    buffer = nextBuffer;
+                }
+                buffer = f.get();
+            } catch (InterruptedException e) {
+                throw e;
+            } catch (ExecutionException e) {
+                throw e;
+            }
+            current = 0;
+        }
+        return res;
+    }
+
+    [...]
+}
+```
+
+## 3 Message Passing
+
+I have implemented the Erlang reference implementation in _Java+Akka_ according to "spec", using Java 10 (which lets me use `var` type declarations).
 
 My full implementation of the Erlang reference implementation can be seen below:
 
