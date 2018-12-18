@@ -55,9 +55,12 @@ class MergerActor extends UntypedActor {
 
     private List<Integer> merge(List<Integer> l1, List<Integer> l2) {
         var result = new ArrayList<Integer>();
+        if (l1.get(0).compareTo(l2.get(0)) < 0) {
+            result.addAll(l1);
+            result.addAll(l2);
+        } else
+            result.addAll(l2);
         result.addAll(l1);
-        result.addAll(l2);
-        result.sort((a, b) -> a.compareTo(b));
         return result;
     }
 

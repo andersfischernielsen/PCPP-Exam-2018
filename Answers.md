@@ -336,4 +336,102 @@ The operations cannot be guaranteed to happen in constant time since any given u
 
 I cannot guarantee that the implementation does not livelock, since i.e. a `transfer` operation could go "back and forth" between values indefinitely.
 
-### Question 1.7
+### Question 1.7.1
+
+My implementation of `applyTransactionsLoop` with a helper (`printAccounts`) for printing balances can be seen below:
+
+```java
+private static void printAccounts(Accounts accounts, int numberOfAccounts) {
+    System.out.println("sumBalances is: " + accounts.sumBalances());
+    if (numberOfAccounts <= 100) {
+        System.out.println("accounts contain: ");
+        for (int i = 0; i < numberOfAccounts; i++) {
+            System.out.println("Account " + i + " is: " + accounts.get(i));
+        }
+    }
+}
+
+// Question 1.7.1
+private static void applyTransactionsLoop(int numberOfAccounts, int numberOfTransactions,
+        Supplier<Accounts> generator) {
+    final Accounts accounts = generator.get();
+    Stream<Transaction> transaction = IntStream.range(0, numberOfTransactions).parallel()
+            .mapToObj((i) -> new Transaction(numberOfAccounts, i));
+
+    transaction.parallel().forEach(t -> {
+        if (t.from == -1) {
+            accounts.deposit(t.to, t.amount);
+        } else {
+            accounts.transfer(t.from, t.to, t.amount);
+        }
+    });
+    printAccounts(accounts, numberOfAccounts);
+}
+```
+
+The output of the above with n = 10 can be seen below:
+
+```
+sumBalances is: 9811
+accounts contain:
+Account 0 is: 1632
+Account 1 is: 40
+Account 2 is: 1272
+Account 3 is: 992
+Account 4 is: 940
+Account 5 is: 577
+Account 6 is: 1841
+Account 7 is: 1071
+Account 8 is: 339
+Account 9 is: 1107
+```
+
+### Question 1.7.2
+
+I have not been able to get my code for this question to compile, but pseudocode and a description of my intended solution can be seen below:
+
+```java
+// Question 1.7.2
+private static void applyTransactionsCollect(int numberOfAccounts, int numberOfTransactions,
+        Supplier<Accounts> generator) {
+    Stream<Transaction> transactions = IntStream.range(0, numberOfTransactions).parallel()
+            .mapToObj((i) -> new Transaction(numberOfAccounts, i));
+
+    // (Failed) attempt using collect:
+    //var collect = transactions.collect(Collectors.mapping(t -> generator.get(), Accounts::transferAccount));
+
+    // Attempt using map:
+    var mapping = transactions.parallel().map(t -> {
+            var a = generator.get();
+            if (t.from == -1) {
+                a.deposit(t.to, t.amount);
+            } else {
+                a.transfer(t.from, t.to, t.amount);
+            }
+            return a;
+        }).collect(Accounts::transferAccount);
+}
+```
+
+My understanding is that we want to build an `Accounts` object that is the result of applying all transactions.
+Using `collect` I wanted to get an initial `Accounts` object using the generator, and then run through all `Transaction`s generating `Accounts` that are the representation of applying a `Transaction`, on one `Accounts`object, and finally collecting/folding the `Accounts` into one `Accounts` object using `transferAccount`. Unfortunately, I did not succeed.
+
+I then wanted to do it in a more simple way (in my opinion) using a `map`.
+I attempted to `map` over all transactions, then applying them to the aggregated `Accounts` object (again initially created using the generator).
+This results in an `Accounts` object Stream representing all applied `Transaction`s. I would then be able to flatten all of these `Accounts` into one `Accounts` object using `transferAccount`.
+
+I currently get cryptic type errors on `map`, but I hope that my attempt and explanation of my thought process is worth something.
+
+### Question 1.7.3
+
+I've used the `Timer` class from the course material to time the performance of the serial `UnsafeAccounts` and `applyTransactionsLoop` tests using `n = 1000`
+
+Both methods use the `UnsafeAccounts` implementation.
+
+- Running serially through all accounts takes 0.048224722 seconds.
+- Running through all transactions takes only 0.018207435 seconds, which is about a 3x speed-up.
+
+The serial run will be slower due to the fact that we cannot execute work concurrently. Given more threads, more `Accounts` can be processed in a shorter amount of time. There does not seem to be an overhead in having many `Transaction` objects in memory, nor does there seem to be a big overhead in using the Stream API, which is to be expected.
+
+The amount of `numberOfTransactions` can be raised to 200000 before the execution time of the sequential and stream-based approaches begin to look alike.
+If `n` is raised, then the two approaches diverge again and the stream-based approach is much faster again.
