@@ -257,7 +257,7 @@ I have chosen to implement the `sumBalances` that risks competing with other met
 
 ### Question 1.6
 
-My full implementation of CASAccounts can be seen below:
+My full implementation of `CASAccounts` can be seen below:
 
 ```java
 public class CASAccounts implements Accounts {
@@ -300,7 +300,8 @@ public class CASAccounts implements Accounts {
         do {
             previousFrom = accounts[from].get();
             previousTo = accounts[to].get();
-        } while (!(accounts[from].compareAndSet(previousFrom, previousFrom - amount) && accounts[to].compareAndSet(previousTo, previousTo + amount)));
+        } while (!(accounts[from].compareAndSet(previousFrom, previousFrom - amount)
+            && accounts[to].compareAndSet(previousTo, previousTo + amount)));
     }
 
     public void transferAccount(Accounts other) {
@@ -310,8 +311,9 @@ public class CASAccounts implements Accounts {
                 previous = accounts[i].get();
                 otherValue = other.get(i);
                 sumPrevious = sum.get();
-            } while (otherValue == other.get(i) && !(accounts[i].compareAndSet(previous, otherValue + previous)
-                    && sum.compareAndSet(sumPrevious, sumPrevious + otherValue)));
+            } while (otherValue == other.get(i)
+                && !(accounts[i].compareAndSet(previous, otherValue + previous)
+                && sum.compareAndSet(sumPrevious, sumPrevious + otherValue)));
         }
     }
 
@@ -398,7 +400,8 @@ private static void applyTransactionsCollect(int numberOfAccounts, int numberOfT
             .mapToObj((i) -> new Transaction(numberOfAccounts, i));
 
     // (Failed) attempt using collect:
-    //var collect = transactions.collect(Collectors.mapping(t -> generator.get(), Accounts::transferAccount));
+    //var collect = transactions
+    //  .collect(Collectors.mapping(t -> generator.get(), Accounts::transferAccount));
 
     // Attempt using map:
     var mapping = transactions.parallel().map(t -> {
@@ -438,6 +441,8 @@ If `n` is raised, then the two approaches diverge again and the stream-based app
 
 ### Question 3
 
+I've implemented the Erlang reference implementation in _Java+Akka_ according to "spec", using Java 10 (which lets me use `var` type declarations).
+
 My full implementation of the Erlang reference implementation can be seen below:
 
 ```java
@@ -451,10 +456,9 @@ import akka.actor.*;
 
 class MergeSort {
     public static void main(String[] args) {
-        final ActorSystem system = ActorSystem.create("MergeSortPipelineSystem");
-
-        final ActorRef tester = system.actorOf(Props.create(TesterActor.class));
-        final ActorRef sorter = system.actorOf(Props.create(SorterActor.class));
+        final var system = ActorSystem.create("MergeSortPipelineSystem");
+        final var tester = system.actorOf(Props.create(TesterActor.class));
+        final var sorter = system.actorOf(Props.create(SorterActor.class));
         tester.tell(new InitMessage(sorter), ActorRef.noSender());
     }
 }

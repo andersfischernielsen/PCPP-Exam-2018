@@ -13,10 +13,9 @@ import akka.actor.*;
 
 class MergeSort {
     public static void main(String[] args) {
-        final ActorSystem system = ActorSystem.create("MergeSortPipelineSystem");
-
-        final ActorRef tester = system.actorOf(Props.create(TesterActor.class));
-        final ActorRef sorter = system.actorOf(Props.create(SorterActor.class));
+        final var system = ActorSystem.create("MergeSortPipelineSystem");
+        final var tester = system.actorOf(Props.create(TesterActor.class));
+        final var sorter = system.actorOf(Props.create(SorterActor.class));
         tester.tell(new InitMessage(sorter), ActorRef.noSender());
     }
 }
