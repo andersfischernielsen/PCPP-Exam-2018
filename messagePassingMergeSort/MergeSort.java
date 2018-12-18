@@ -76,11 +76,8 @@ class MergerActor extends UntypedActor {
                 return;
             if (l1 == null) {
                 l1 = ((SortedMessage) o).sorted;
-            }
-            if (l2 == null) {
+            } else {
                 l2 = ((SortedMessage) o).sorted;
-            }
-            if (l1 != null && l2 != null) {
                 var sorted = merge(l1, l2);
                 System.out.println("Merged: " + sorted);
                 receiver.tell(new SortedMessage(sorted), ActorRef.noSender());
