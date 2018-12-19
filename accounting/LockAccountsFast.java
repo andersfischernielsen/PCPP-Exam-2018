@@ -6,6 +6,7 @@ public class LockAccountsFast implements Accounts {
 
     public LockAccountsFast(int n) {
         accounts = new Integer[n];
+        sums = new Integer[threads];
     }
 
     public void init(int n) {

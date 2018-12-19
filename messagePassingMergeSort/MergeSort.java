@@ -4,10 +4,14 @@
 // java -cp ../libraries/scala.jar:../libraries/akka-actor.jar:../libraries/akka-config.jar:. MergeSort
 
 import java.io.Serializable;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import static java.util.stream.Collectors.toCollection;
 
 import akka.actor.*;
 
@@ -54,13 +58,21 @@ class MergerActor extends UntypedActor {
 
     private List<Integer> merge(List<Integer> l1, List<Integer> l2) {
         var result = new ArrayList<Integer>();
-        if (l1.stream().min(Integer::compare).get() < l2.stream().min(Integer::compare).get()) {
-            result.addAll(l1);
-            result.addAll(l2);
-        } else {
-            result.addAll(l2);
-            result.addAll(l1);
+        var left = new ArrayDeque<Integer>(l1);
+        var right = new ArrayDeque<Integer>(l2);
+        while (!left.isEmpty() && !right.isEmpty()) {
+            if (left.peek().compareTo(right.peek()) > 0) {
+                result.add(right.poll());
+            } else {
+                result.add(left.poll());
+                var temp = left;
+                left = right;
+                right = temp;
+            }
         }
+
+        result.addAll(left);
+        result.addAll(right);
         return result;
     }
 
@@ -90,7 +102,7 @@ class TesterActor extends UntypedActor {
     public void onReceive(Object o) throws Exception {
         if (o instanceof InitMessage) {
             var sorter = ((InitMessage) o).sorter;
-            var list = Arrays.asList(new Integer[] { 8, 8, 8, 8, 1, 1, 1, 1 });
+            var list = Arrays.asList(new Integer[] { 8, 1, 8, 1, 8, 1, 8, 1 });
             System.out.println(list);
             sorter.tell(new SortMessage(list, getSelf()), ActorRef.noSender());
         } else if (o instanceof SortedMessage) {

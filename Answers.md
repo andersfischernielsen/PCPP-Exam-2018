@@ -25,10 +25,9 @@ for (int i = 0; i < 20000; i++) {
         assert (accounts.get(n - 1) == 0);
     });
 }
-assert (accounts.get(n - 1) == 0);
 ```
 
-By transfering an amount to an account, checking that what the current value on the account is and then removing that amount 20000 across two Threads we see that the value on the account is not what we expect due to interleaved transfers.
+By transfering an amount to an account, checking that what the current value on the account is and then removing that amount 20000 across two `Thread`s we see that the value on the account is not what we expect due to non-threadsafe interleaved transfers.
 
 ### Question 1.2
 
@@ -48,11 +47,11 @@ new Thread(() -> {
 });
 ```
 
-This test never succeeds, which it should. This shows a visiblity problem in `UnsafeAccounts`.
+This test never succeeds, which it should. This shows that there is a visiblity problem in `UnsafeAccounts`.
 
 ### Question 1.3
 
-The full `LockAccounts` class is shown below:
+My full implementation of `LockAccounts` is shown below:
 
 ```java
 import java.util.Arrays;
@@ -156,6 +155,11 @@ public class LockAccountsFast implements Accounts {
     private volatile Integer[] sums;
     private static final int threads = 4;
 
+    public LockAccountsFast(int n) {
+        [...]
+        sums = new Integer[threads];
+    }
+
     [...]
 
     public int sumBalances() {
@@ -257,7 +261,7 @@ public class STMAccounts implements Accounts {
 
 I have been unable to run `Runner` with the multiverse .jar file. The code looks almost identical to the code I wrote in hand-in 9, though.
 
-I have chosen to implement the `sumBalances` that risks competing with other method calls. The other implementation option would use transactions on a more granular level, but would then risk that the array could change while `toString`'ing.
+I have chosen to implement the `sumBalances` that risks competing with other method calls. The other implementation option would use more granular transactions, but would then risk that the array could change while `toString`'ing.
 
 ### Question 1.6
 
@@ -340,7 +344,7 @@ No writes are lost in the tests I have performed, and `CASAccounts` passes both 
 
 The operations cannot be guaranteed to happen in constant time since any given update/set of a value might have to be retried a number of times.
 
-I cannot guarantee that the implementation does not livelock, since i.e. a `transfer` operation could go "back and forth" between values indefinitely.
+I cannot guarantee that the implementation does not livelock, since i.e. a `transfer` operation between threads could go "back and forth" between values indefinitely.
 
 ### Question 1.7.1
 
@@ -375,7 +379,7 @@ private static void applyTransactionsLoop(int numberOfAccounts, int numberOfTran
 }
 ```
 
-The output of the above with n = 10 can be seen below:
+The output of running the above with n = 10 can be seen below:
 
 ```
 sumBalances is: 9811
@@ -421,11 +425,11 @@ private static void applyTransactionsCollect(int numberOfAccounts, int numberOfT
 ```
 
 My understanding is that we want to build an `Accounts` object that is the result of applying all transactions.
-Using `collect` I wanted to get an initial `Accounts` object using the generator, and then run through all `Transaction`s generating `Accounts` that are the representation of applying a `Transaction`, on one `Accounts`object, and finally collecting/folding the `Accounts` into one `Accounts` object using `transferAccount`. Unfortunately, I did not succeed.
+Using `collect` I wanted to get an initial `Accounts` object using the generator, and then run through all `Transaction`s generating `Accounts` that are the representation of applying a `Transaction`, on one `Accounts`object, then finally collecting/folding the `Accounts` into one `Accounts` object using `transferAccount`. Unfortunately, I did not succeed.
 
 I then wanted to do it in a more simple way (in my opinion) using a `map`.
 I attempted to `map` over all transactions, then applying them to the aggregated `Accounts` object (again initially created using the generator).
-This results in an `Accounts` object Stream representing all applied `Transaction`s. I would then be able to flatten all of these `Accounts` into one `Accounts` object using `transferAccount`.
+This results in an `Accounts` object `Stream` representing all applied `Transaction`s. I would then be able to flatten all of these `Accounts` into one `Accounts` object using `transferAccount`.
 
 I currently get cryptic type errors on `map`, but I hope that my attempt and explanation of my thought process is worth something.
 
@@ -436,7 +440,7 @@ I've used the `Timer` class from the course material to time the performance of 
 Both methods use the `UnsafeAccounts` implementation.
 
 - Running serially through all accounts takes 0.048224722 seconds.
-- Running through all transactions takes only 0.018207435 seconds, which is about a 3x speed-up.
+- Running through all transactions takes only 0.018207435 seconds, which is about a 2.5x speed-up.
 
 The serial run will be slower due to the fact that we cannot execute work concurrently. Given more threads, more `Accounts` can be processed in a shorter amount of time. There does not seem to be an overhead in having many `Transaction` objects in memory, nor does there seem to be a big overhead in using the Stream API, which is to be expected.
 
@@ -622,11 +626,11 @@ n 10000000  s 45678, extract 2500000  bufLen 20  maxDepth 4  cutOff 4
 ```
 
 We see that the `ParallelPQPair` implementation halves the execution time for the `BufferedPQ` implementation and the `BufferedPQP`, which is to be expected considering that we divide the work into two concurrent tasks in the `Pair`.
-As we have seen previously in the course, using a `workStealingPool` is efficient since we use all available processors as the parallelism level.
+As we have seen previously in the course, using a `workStealingPool` is efficient since we use all available processors as the parallelism level for the `ExecutorService`. We therefore do not need to implement checking the available number of threads on the CPU of the machine and adjust accordingly by creating manual `Thread`s. Furthermore creating a task and submitting it to the `ExecutorService` is fast and takes little memory, whereas creating a `Thread` is slow and takes much memory.
 
 ## 3 Message Passing
 
-I have implemented the Erlang reference implementation in _Java+Akka_ according to "spec", using Java 10 (which lets me use `var` type declarations).
+I have implemented the Erlang reference implementation in _Java+Akka_ according to spec using Java 10 (which lets me use `var` type declarations).
 
 My full implementation of the Erlang reference implementation can be seen below:
 
@@ -683,14 +687,17 @@ class MergerActor extends UntypedActor {
     private List<Integer> l2;
 
     private List<Integer> merge(List<Integer> l1, List<Integer> l2) {
+        var left = new ArrayDeque<Integer>(l1); var right = new ArrayDeque<Integer>(l2);
         var result = new ArrayList<Integer>();
-        if (l1.stream().max(Integer::compare).get() < l2.stream().max(Integer::compare).get()) {
-            result.addAll(l1);
-            result.addAll(l2);
-        } else {
-            result.addAll(l2);
-            result.addAll(l1);
+        while (!left.isEmpty() && !right.isEmpty()) {
+            if (left.peek().compareTo(right.peek()) > 0) {
+                result.add(right.poll());
+            } else {
+                result.add(left.poll());
+                var temp = left; left = right; right = temp; // Swap
+            }
         }
+        result.addAll(left); result.addAll(right); // Add remainder (if any)
         return result;
     }
 
@@ -800,15 +807,15 @@ Merged: [1, 2, 8, 8, 8, 8, 8, 8]
 RESULT: [1, 2, 8, 8, 8, 8, 8, 8]
 
 # Input:
-[8, 8, 8, 8, 1, 1, 1, 1]
+[8, 1, 8, 1, 8, 1, 8, 1]
 
-#Result:
-Merged: [1, 1]
-Merged: [8, 8]
-Merged: [1, 1]
-Merged: [8, 8]
-Merged: [8, 8, 8, 8]
-Merged: [1, 1, 1, 1]
+# Result:
+Merged: [1, 8]
+Merged: [1, 8]
+Merged: [1, 8]
+Merged: [1, 8]
+Merged: [1, 1, 8, 8]
+Merged: [1, 1, 8, 8]
 Merged: [1, 1, 1, 1, 8, 8, 8, 8]
 RESULT: [1, 1, 1, 1, 8, 8, 8, 8]
 ```
