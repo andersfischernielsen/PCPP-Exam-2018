@@ -2,7 +2,9 @@
     pandoc Answers.md -o Answers.pdf -V geometry:margin=1in
 -->
 
-# Exam
+# PCPP December 2018 - Exam
+
+_Anders Fischer-Nielsen_
 
 ## 1 Accounting System
 
@@ -554,7 +556,7 @@ BufferedPQ Ser/Serial:  ~10% speed-up
 ```
 
 It is interesting to see that there is a slowdown on small $n$. The overhead of multithreading is simply too big to outweigh the single-core speed.
-Otherwise the results are quite consistent with the biggest speed-up seen using _One Parallel_.
+Otherwise the results are quite consistent, with the biggest speed-up gained from using _One Parallel_.
 
 ### Question 2.2
 
@@ -635,17 +637,11 @@ I have implemented the Erlang reference implementation in _Java+Akka_ according 
 My full implementation of the Erlang reference implementation can be seen below:
 
 ```java
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import akka.actor.*;
 
 class MergeSort {
     public static void main(String[] args) {
-        final var system = ActorSystem.create("MergeSortPipelineSystem");
+        final var system = ActorSystem.create("MergeSortSystem");
         final var tester = system.actorOf(Props.create(TesterActor.class));
         final var sorter = system.actorOf(Props.create(SorterActor.class));
         tester.tell(new InitMessage(sorter), ActorRef.noSender());
@@ -669,7 +665,6 @@ class SorterActor extends UntypedActor {
 
                 var s1 = getContext().actorOf(Props.create(SorterActor.class));
                 s1.tell(new SortMessage(l1, m), ActorRef.noSender());
-
                 var s2 = getContext().actorOf(Props.create(SorterActor.class));
                 s2.tell(new SortMessage(l2, m), ActorRef.noSender());
             }
@@ -687,17 +682,17 @@ class MergerActor extends UntypedActor {
     private List<Integer> l2;
 
     private List<Integer> merge(List<Integer> l1, List<Integer> l2) {
-        var left = new ArrayDeque<Integer>(l1); var right = new ArrayDeque<Integer>(l2);
         var result = new ArrayList<Integer>();
+        var left = new ArrayList<Integer>(l1); var right = new ArrayList<Integer>(l2); //Copy.
         while (!left.isEmpty() && !right.isEmpty()) {
-            if (left.peek().compareTo(right.peek()) > 0) {
-                result.add(right.poll());
+            if (left.get(0).compareTo(right.get(0)) < 0) {
+                result.add(left.remove(0));
             } else {
-                result.add(left.poll());
-                var temp = left; left = right; right = temp; // Swap
+                result.add(right.remove(0));
+                var temp = left; left = right; right = temp; // Swap.
             }
         }
-        result.addAll(left); result.addAll(right); // Add remainder (if any)
+        result.addAll(left); result.addAll(right); // Add remainder (if any).
         return result;
     }
 

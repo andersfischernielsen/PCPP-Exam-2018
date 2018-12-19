@@ -17,7 +17,7 @@ import akka.actor.*;
 
 class MergeSort {
     public static void main(String[] args) {
-        final var system = ActorSystem.create("MergeSortPipelineSystem");
+        final var system = ActorSystem.create("MergeSortSystem");
         final var tester = system.actorOf(Props.create(TesterActor.class));
         final var sorter = system.actorOf(Props.create(SorterActor.class));
         tester.tell(new InitMessage(sorter), ActorRef.noSender());
@@ -58,19 +58,18 @@ class MergerActor extends UntypedActor {
 
     private List<Integer> merge(List<Integer> l1, List<Integer> l2) {
         var result = new ArrayList<Integer>();
-        var left = new ArrayDeque<Integer>(l1);
-        var right = new ArrayDeque<Integer>(l2);
+        var left = new ArrayList<Integer>(l1);
+        var right = new ArrayList<Integer>(l2);
         while (!left.isEmpty() && !right.isEmpty()) {
-            if (left.peek().compareTo(right.peek()) > 0) {
-                result.add(right.poll());
+            if (left.get(0).compareTo(right.get(0)) < 0) {
+                result.add(left.remove(0));
             } else {
-                result.add(left.poll());
+                result.add(right.remove(0));
                 var temp = left;
                 left = right;
                 right = temp;
             }
         }
-
         result.addAll(left);
         result.addAll(right);
         return result;
